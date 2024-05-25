@@ -6,9 +6,9 @@ import numpy as np
 
 class TextToSpeech:
     def __init__(self, modelName):
-        
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.modelName = modelName
-        self.processor = AutoProcessor.from_pretrained(modelName)
+        self.processor = AutoProcessor.from_pretrained(modelName).to(self.device)
         self.model = BarkModel.from_pretrained(modelName)
 
     def textToSpeech(self, text):
@@ -24,7 +24,7 @@ class TextToSpeech:
 
 
 if __name__ == "__main__":
-    tts = TextToSpeech("suno/bark")
-    text = "Hello Artem, this is from text to speech using suno/bark-small."
+    tts = TextToSpeech("artificial-feelings/bark-forked")
+    text = "Hello Artem, this is from text to speech using artificial-feelings/bark-forked."
     waveform = tts.textToSpeech(text)
     tts.saveToFile(waveform, "output.wav")
