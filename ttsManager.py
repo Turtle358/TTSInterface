@@ -1,35 +1,30 @@
-from transformers import pipeline
-import numpy as np
-import soundfile as sf
 import torch
-import os
+from transformers import AutoProcessor, BarkModel
+import soundfile as sf
+import numpy as np
 
 
-class ttsManager:
-    def __init__(self):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.pipe = pipeline('text-to-speech', model="suno/bark-small", device=self.device)
-        print("Model loaded successfully")
+class TextToSpeech:
+    def __init__(self, modelName):
+        
+        self.modelName = modelName
+        self.processor = AutoProcessor.from_pretrained(modelName)
+        self.model = BarkModel.from_pretrained(modelName)
 
-    def generateAudio(self, text):
-        output = self.pipe(text)
-        print(f'Phrase "{text}" successfully generated')
-        return output
+    def textToSpeech(self, text):
+        inputs = self.processor(text, return_tensors='pt')
+        with torch.no_grad():
+            speech = self.model.generate(**inputs)
+        waveform = speech[0].cpu().numpy()
+        return waveform
 
-    def saveAudio(self, output, outputFile='./output.mp3'):
-        # Assuming output is a dictionary containing the audio samples and sample rate
-        audio_samples = output["audio"]
-        sample_rate = 44000
-
-        # Convert the audio samples to a numpy array
-        audio_data = np.array(audio_samples)
-
-        # Save the audio data to a WAV file
-        sf.write(outputFile, audio_data, sample_rate, format='mp3')
-        print(f'Audio successfully saved to {outputFile}')
+    def saveToFile(self, waveform, file_name, sample_rate=22050):
+        sf.write(file_name, waveform, samplerate=sample_rate)
+        print(f"Speech has been saved to {file_name}")
 
 
-if __name__ == '__main__':
-    tts = ttsManager()
-    output = tts.generateAudio('Hello world')
-    tts.saveAudio(output)
+if __name__ == "__main__":
+    tts = TextToSpeech("suno/bark")
+    text = "Hello Artem, this is from text to speech using suno/bark-small."
+    waveform = tts.textToSpeech(text)
+    tts.saveToFile(waveform, "output.wav")

@@ -1,4 +1,4 @@
-transformers
-torch
-numpy
-AudioSegment
+torch~=2.3.0
+soundfile~=0.12.1
+numpy~=1.26.4
+transformers~=4.41.1
