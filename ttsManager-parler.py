@@ -46,6 +46,8 @@ class TextToSpeech:
             audioSegment = AudioSegment.from_wav(wavFile)
             mergedAudio += audioSegment
         mergedAudio.export('./finalOutput.mp3', format='mp3')
+        for file in wavFiles:
+            os.remove(file)
         print('Saved to ./finalOutput.mp3')
 
 
