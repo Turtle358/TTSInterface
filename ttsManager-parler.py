@@ -1,26 +1,28 @@
 import torch
-from transformers import AutoProcessor, BarkModel
+from transformers import AutoTokenizer, set_seed
+from parler_tts import ParlerTTSForConditionalGeneration
 import soundfile as sf
 from pydub import AudioSegment
 from autocorrect import Speller
 import os
 
+
 class TextToSpeech:
     def __init__(self, modelName):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.modelName = modelName
-        self.processor = AutoProcessor.from_pretrained(modelName)
-        self.model = BarkModel.from_pretrained(modelName, device_map=self.device)
+        self.model = ParlerTTSForConditionalGeneration.from_pretrained(modelName).to(self.device)
+        self.tokeniser = AutoTokenizer.from_pretrained(modelName)
 
-    def textToSpeech(self, text):
-        inputs = self.processor(text, return_tensors='pt')
-        with torch.no_grad():
-            speech = self.model.generate(**inputs)
-        waveform = speech[0].cpu().numpy()
-        return waveform
+    def textToSpeech(self, text, description):
+        inputIDs = self.tokeniser(description, return_tensors="pt").input_ids.to(self.device)
+        promptInputIDs = self.tokeniser(text, return_tensors="pt").input_ids.to(self.device)
+        set_seed(42)
+        generation = self.model.generate(input_ids=inputIDs, prompt_input_ids=promptInputIDs)
+        audioArr = generation.cpu().numpy().squeeze()
+        return audioArr
 
-    def saveToFile(self, waveform, fileName, fileNum, fileTot, sampleRate=22050, ):
-        sf.write(fileName, waveform, samplerate=sampleRate)
+    def saveToFile(self, waveform, fileName, fileNum, fileTot):
+        sf.write(fileName, waveform, samplerate=self.model.config.sampling_rate)
         print(f"{fileNum}/{fileTot}: Speech has been saved to {fileName}")
 
     def chunkText(self, text, chunkSize=512):
@@ -48,13 +50,14 @@ class TextToSpeech:
 
 
 if __name__ == "__main__":
-    tts = TextToSpeech("ylacombe/bark-small")
+    tts = TextToSpeech("parler-tts/parler-tts-mini-jenny-30H")
     with open("input.txt", "r", encoding="utf-8") as file:
         text = file.read().lower()
     text = tts.autocorrectText(text)
     text = tts.chunkText(text, chunkSize=40)
+    description = "Jenny speaks at an average pace with an animated delivery in a very confined sounding environment with clear audio quality."
     for i in range(len(text)):
-        waveform = tts.textToSpeech(text[i])
+        waveform = tts.textToSpeech(text[i], description)
         if not os.path.exists("./rawOutputs"):
             os.mkdir("./rawOutputs")
         tts.saveToFile(waveform, f"./rawOutputs/output_{i+1}.wav", i+1, len(text))
