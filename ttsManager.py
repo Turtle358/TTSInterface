@@ -1,8 +1,9 @@
 import torch
 from transformers import AutoProcessor, BarkModel
 import soundfile as sf
-import numpy as np
-
+from pydub import AudioSegment
+from autocorrect import Speller
+import os
 
 class TextToSpeech:
     def __init__(self, modelName):
@@ -18,13 +19,43 @@ class TextToSpeech:
         waveform = speech[0].cpu().numpy()
         return waveform
 
-    def saveToFile(self, waveform, file_name, sample_rate=22050):
-        sf.write(file_name, waveform, samplerate=sample_rate)
-        print(f"Speech has been saved to {file_name}")
+    def saveToFile(self, waveform, fileName, fileNum, fileTot, sampleRate=22050, ):
+        sf.write(fileName, waveform, samplerate=sampleRate)
+        print(f"{fileNum}/{fileTot}: Speech has been saved to {fileName}")
+
+    def chunkText(self, text, chunkSize=512):
+        words = text.split()
+        chunks = []
+        for i in range(0, len(words), chunkSize):
+            chunks.append(' '.join(words[i:i + chunkSize]))
+        return chunks
+
+    def autocorrectText(self, text):
+        spell = Speller(lang='en')
+        correctedText = ' '.join(spell(word) for word in text.split())
+        return correctedText
+
+    def mergeSavedFiles(self):
+        wavFiles = os.listdir('./outputs')
+        wavFiles = ["./outputs/" + x for x in wavFiles]
+        mergedAudio = AudioSegment.empty()
+
+        for wavFile in wavFiles:
+            audioSegment = AudioSegment.from_wav(wavFile)
+            mergedAudio += audioSegment
+        mergedAudio.export('./finalOutput.mp3', format='mp3')
+        print('Saved to ./finalOutput.mp3')
 
 
 if __name__ == "__main__":
-    tts = TextToSpeech("yefengzi/bark-small-fork")
-    text = "Hello Artem, this is from text to speech using yefengzi/bark-small-fork."
-    waveform = tts.textToSpeech(text)
-    tts.saveToFile(waveform, "output.wav")
+    tts = TextToSpeech("ylacombe/bark-small")
+    with open("input.txt", "r", encoding="utf-8") as file:
+        text = file.read().lower()
+    text = tts.autocorrectText(text)
+    text = tts.chunkText(text, chunkSize=40)
+    for i in range(len(text)):
+        waveform = tts.textToSpeech(text[i])
+        if not os.path.exists("./outputs"):
+            os.mkdir("./outputs")
+        tts.saveToFile(waveform, f"./outputs/output_{i+1}.wav", i+1, len(text))
+    tts.mergeSavedFiles()
