@@ -36,8 +36,8 @@ class TextToSpeech:
         return correctedText
 
     def mergeSavedFiles(self):
-        wavFiles = os.listdir('./outputs')
-        wavFiles = ["./outputs/" + x for x in wavFiles]
+        wavFiles = os.listdir('./rawOutputs')
+        wavFiles = ["./rawOutputs/" + x for x in wavFiles]
         mergedAudio = AudioSegment.empty()
 
         for wavFile in wavFiles:
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     text = tts.chunkText(text, chunkSize=40)
     for i in range(len(text)):
         waveform = tts.textToSpeech(text[i])
-        if not os.path.exists("./outputs"):
-            os.mkdir("./outputs")
-        tts.saveToFile(waveform, f"./outputs/output_{i+1}.wav", i+1, len(text))
+        if not os.path.exists("./rawOutputs"):
+            os.mkdir("./rawOutputs")
+        tts.saveToFile(waveform, f"./rawOutputs/output_{i+1}.wav", i+1, len(text))
     tts.mergeSavedFiles()
