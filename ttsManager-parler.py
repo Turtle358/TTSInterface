@@ -14,20 +14,26 @@ class TextToSpeech:
         self.model = ParlerTTSForConditionalGeneration.from_pretrained(modelName).to(self.device)
         self.tokeniser = AutoTokenizer.from_pretrained(modelName)
 
-    def textToSpeech(self, text, description):
+    def textToSpeech(self, text, description, run=0):
         inputIDs = self.tokeniser(description, return_tensors="pt").input_ids.to(self.device)
         promptInputIDs = self.tokeniser(text, return_tensors="pt").input_ids.to(self.device)
         set_seed(42)
         generation = self.model.generate(input_ids=inputIDs, prompt_input_ids=promptInputIDs)
         audioArr = generation.cpu().numpy().squeeze()
+        if str(audioArr) == "0.0" and run != 2:
+            run +=1
+            return self.textToSpeech(text, description, run=run)
         return audioArr
 
     def saveToFile(self, waveform, fileName, fileNum, fileTot):
         print(waveform)
         if len(waveform.shape) == 1:
             waveform = waveform.reshape(-1, 1)
-        sf.write(fileName, waveform, samplerate=self.model.config.sampling_rate)
-        print(f"{fileNum}/{fileTot}: Speech has been saved to {fileName}")
+        try:
+            sf.write(fileName, waveform, samplerate=self.model.config.sampling_rate)
+            print(f"\n{fileNum}/{fileTot}: Speech has been saved to {fileName}\n")
+        except IndexError:
+            print(f"\n\n\nFailed to save {fileNum}/{fileTot} to {fileName}, perhaps there was no speech? Tries attempted 2\n\n\n")
 
     def chunkText(self, text, chunkSize=512):
         words = text.split()
