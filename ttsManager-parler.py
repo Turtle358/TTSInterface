@@ -3,7 +3,8 @@ from transformers import AutoTokenizer, set_seed
 from parler_tts import ParlerTTSForConditionalGeneration
 import soundfile as sf
 from pydub import AudioSegment
-from autocorrect import Speller
+from num2words import num2words
+import re
 import os
 
 
@@ -22,6 +23,9 @@ class TextToSpeech:
         return audioArr
 
     def saveToFile(self, waveform, fileName, fileNum, fileTot):
+        print(waveform)
+        if len(waveform.shape) == 1:
+            waveform = waveform.reshape(-1, 1)
         sf.write(fileName, waveform, samplerate=self.model.config.sampling_rate)
         print(f"{fileNum}/{fileTot}: Speech has been saved to {fileName}")
 
@@ -32,10 +36,14 @@ class TextToSpeech:
             chunks.append(' '.join(words[i:i + chunkSize]))
         return chunks
 
-    def autocorrectText(self, text):
-        spell = Speller(lang='en')
-        correctedText = ' '.join(spell(word) for word in text.split())
-        return correctedText
+    def replaceNumbersWithWords(self, text):
+        numberPattern = re.compile(r'\b\d+\b')
+        def numberToWords(match):
+            number = int(match.group())
+            return num2words(number)
+
+        result = numberPattern.sub(numberToWords, text)
+        return result
 
     def mergeSavedFiles(self):
         wavFiles = os.listdir('./rawOutputs')
@@ -55,8 +63,16 @@ if __name__ == "__main__":
     tts = TextToSpeech("parler-tts/parler-tts-mini-jenny-30H")
     with open("input.txt", "r", encoding="utf-8") as file:
         text = file.read().lower()
-    text = tts.autocorrectText(text)
-    text = tts.chunkText(text, chunkSize=40)
+    if torch.cuda.is_available():
+        print("""
+   _____          _       
+  / ____|        | |      
+ | |    _   _  __| | __ _ 
+ | |   | | | |/ _` |/ _` |
+ | |___| |_| | (_| | (_| |
+  \_____\__,_|\__,_|\__,_|""")
+    text = tts.replaceNumbersWithWords(text)
+    text = tts.chunkText(text, chunkSize=50)
     description = "Jenny speaks at an average pace with an animated delivery in a very confined sounding environment with clear audio quality."
     for i in range(len(text)):
         waveform = tts.textToSpeech(text[i], description)
